@@ -1,0 +1,14 @@
+program           -> statement program | e
+statement         -> expression | if_statement | while_loop
+expression        -> variableStart '=' arithmetic_expression
+arithmetic_expression -> term | term '+' arithmetic_expression | term '-' arithmetic_expression 
+term              -> factor '*' term | factor '/' factor | factor
+factor            -> digit number | variableStart | '(' arithmetic_expression ')'
+if_statement      -> 'if' condition 'then' statement 'else' statement | 'if' condition 'then' statement
+while_loop        -> 'while' condition 'do' statement
+condition         -> arithmetic_expression ('==' | '!=' | '<' | '>' | '<=' | '>=') arithmetic_expression
+variableStart     -> letter variable
+variable          -> letter variable | digit variable | e
+number            -> digit number | e
+letter            -> 'a' | 'b' | ... | 'z' | 'A' | 'B' | ... | 'Z'
+digit             -> '0' | '1' | ... | '9'
