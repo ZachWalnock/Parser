@@ -9,6 +9,77 @@ class Lexer:
     def get_token(self):
         token = self.code[self.position]
         return token
+    
+    def formatIndents(self):
+        self.code = self.code.replace('    ', '$') #replace indents with money symbol so that I can keep track of indents later
+        lines = self.code.split('\n')
+        split = [line.split() for line in lines if line != '' and line != '$']
+
+        newList = []
+        i = 0
+        while i < len(split):
+            indent = split[i][0].count('$')
+            split[i][0] = split[i][0].strip('$')
+            checkForInLine = self.checkForInLine(split[i])
+            if checkForInLine != False:
+                newList += checkForInLine
+                i += 1
+            elif indent == 0:
+                newList += split[i]
+                i += 1
+            else:
+                newList += ['$'*indent]
+                indentStack = [indent]
+                newList += split[i] 
+                i += 1
+                while i < len(split) and len(indentStack) != 0:
+                    indent = split[i][0].count('$')
+                    split[i][0] = split[i][0].strip('$')
+                    if checkForInLine != False:
+                        newList += checkForInLine
+                        i += 1
+                    elif indent < indentStack[-1]:
+                        count = indentStack.pop()
+                        newList += [count*'$']
+                        newList += split[i]
+                        i += 1
+                    elif indent == indentStack[-1]:
+                        newList += split[i]
+                        i += 1
+                    else:
+                        indentStack.append(indent)
+                        newList += [indent * '$']
+                        newList += split[i]
+                        i += 1
+                while len(indentStack) != 0:
+                    count = indentStack.pop()
+                    newList += [count*'$']
+        return newList
+    
+    def checkForInLine(self, line):
+        if 'if' in line[0] and line[-1] != 'then':
+            inLineExpression = []
+            j = 0
+            while line[j] != 'then':
+                inLineExpression.append(line[j])
+                j += 1
+            inLineExpression.append(line[j]) #appending 'then'
+            inLineExpression.append('INLINE')
+            inLineExpression += line[j+1:]
+            inLineExpression.append('INLINE')
+            return inLineExpression
+        elif 'while' in line[0] and line[-1] != 'do':
+            inLineExpression = []
+            j = 0
+            while line[j] != 'do':
+                inLineExpression.append(line[j])
+                j += 1
+            inLineExpression.append(line[j])
+            inLineExpression.append('INLINE')
+            inLineExpression += line[j+1:]
+            inLineExpression.append('INLINE')
+            return inLineExpression
+        return False
 # Parser
 # Input : lexer object
 # Output: AST program representation.
@@ -34,16 +105,15 @@ class Parser:
         self.current_token = None
         self.operators = ['*', '/', '+', '-']
         self.brackets = ['(', ')']
+        self.comparisons = ['==', '!=', '<', '>', '<=', '>=']
 
     # function to parse the entire program
     def parse(self):
         result = ''
-        self.lexer.code = self.lexer.code.split(' ')
-        self.lexer.code = [token for token in self.lexer.code if token != '' and token != '\n']
+        self.lexer.code = self.lexer.formatIndents()
         self.programLength = len(self.lexer.code)
-        
         formatedList = []
-        for i in range(self.programLength): #getting rid of the '\n'
+        for i in range(self.programLength): #dealing with the paranthesis
             token = self.lexer.code[i]
             openParans = []
             closedParans = []
@@ -54,6 +124,8 @@ class Parser:
                     closedParans.append(letter)
             formatedList += openParans + [token.strip('()\n')] + closedParans     
         self.lexer.code = formatedList
+        
+        print(self.lexer.code)
         self.programLength = len(self.lexer.code) #updating the length after finding paranthesis
         self.current_token = self.lexer.get_token()
         while self.lexer.position != self.programLength - 1:
@@ -93,14 +165,16 @@ class Parser:
         end = False
         while self.lexer.position+1<self.programLength and not end:
             assignmentTokens.append(self.current_token)
-            self.advance()
             if self.lexer.position + 1 < self.programLength:
                 nextToken = self.lexer.code[self.lexer.position + 1]
                 if (self.current_token != '(' and self.current_token not in self.operators) and (nextToken not in self.brackets and nextToken not in self.operators):
                     end = True
+                    self.advance()
+                else:
+                    self.advance()
             else:
                 end = True
-        if self.lexer.position == self.programLength - 1:
+        if self.lexer.position == self.programLength - 1 and not end:
             assignmentTokens.append(self.current_token)
         assignmentString += self.arithmetic_expression(assignmentTokens) + ")"
         return assignmentString
@@ -182,15 +256,63 @@ class Parser:
     # parse if statement, you can handle then and else part here.
     # you also have to check for condition.
     def if_statement(self):
-        pass
-    
+        ifStatement = "('if', "
+        if self.current_token != 'if':
+            raise('Invalid syntax')
+        self.advance()
+        ifStatement += self.condition('then') + ", "
+        if self.current_token != 'then':
+            raise('Invalid syntax')
+        self.advance()
+        indentIdentifier = self.current_token
+        self.advance()
+        if indentIdentifier == 'INLINE':
+            ifStatement += self.statement()
+            if self.lexer.position != self.programLength-1:
+                self.advance()
+        else:
+            while self.current_token != indentIdentifier:
+                test = self.statement()
+                ifStatement += test
+                print(test)
+            if self.lexer.position != self.programLength-1:
+                self.advance()
+        return ifStatement + ")"
     # implement while statment, check for condition
     # possibly make a call to statement?
     def while_loop(self):
-        pass
+        whileStatement = "('while', "
+        if self.current_token != 'while':
+            raise("Invalid Syntax")
+        self.advance()
+        whileStatement += self.condition('do') + ", "
+        self.advance()
+        indefierToken = self.current_token
+        if indefierToken == 'INLINE':
+            whileStatement += self.statement()
+            if self.lexer.position != self.programLength-1:
+                self.advance()
+        else:
+            while self.current_token != indefierToken:
+                whileStatement += self.statement()
+            if self.lexer.position != self.programLength-1:
+                self.advance()
+        return whileStatement
 
-    def condition(self):
-        pass
+    def condition(self, endCondition):
+        leftHand = []
+        while self.current_token not in self.comparisons:
+            leftHand.append(self.current_token) 
+            self.advance()
+        comparison = self.current_token
+        self.advance()
+        rightHand = []
+        while self.current_token != endCondition:
+            rightHand.append(self.current_token)
+            self.advance()
+        leftStringified = self.arithmetic_expression(leftHand)
+        rightStringified = self.arithmetic_expression(rightHand)
+        return "('" + comparison + "', " + leftStringified + ", " + rightStringified + ")"
 
     def checkVariable(self, token):
         if not token[0].isalpha():
@@ -199,21 +321,24 @@ class Parser:
             if not (letter.isnumeric() or letter.isalpha()):
                 return False
         return True
-            
-# code_1 = '''
-#     x = 5 + 3
-#     y = 0
-#     if x > y then
-#         y = x
-#     '''
+
+code_1 = '''
+x1312 = 5 + 3
+y = 0
+if x > y then
+    y = x
+'''
 
 test = '''
-    x = 1
-    y = 2
-    z = 3
-    a = x + y + z
+x = 1
+x99 = 1234
+c99 = (x99 * x)
+cnt = 0
+while c99 > x99 do 
+    cnt = cnt + 1
 '''
 
 lexer = Lexer(test)
 parser = Parser(lexer)
-parser.parse()
+result = parser.parse()
+
