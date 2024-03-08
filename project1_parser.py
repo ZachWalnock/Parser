@@ -86,16 +86,6 @@ class Lexer:
             return inLineExpression
         return False
     
-    def removeStartingEndingIndents(self):
-        # start = 0
-        # # while self.code[start] in ['', '\n']:
-        # #     print(self.code[start])
-        # #     start += 1
-        # self.code = self.code[start:]
-        # print("Print: " + self.code[1])
-        # end = len(self.code)
-        self.code = self.code[2:-2]
-
 # Parser
 # Input : lexer object
 # Output: AST program representation.
