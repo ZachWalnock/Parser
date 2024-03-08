@@ -1,5 +1,4 @@
 # Lexer
-import regex 
 class Lexer:
     def __init__(self, code):
         self.code = code
@@ -11,7 +10,7 @@ class Lexer:
         return token
     
     def formatIndents(self):
-        self.code = self.code.replace('\n    ', '\n') #fixing the formatting of multi line string 
+        self.removeStartEndIndents()
         self.code = self.code.replace('    ', '$') #replace indents with money symbol so that I can keep track of indents later
         lines = self.code.split('\n')
         split = [line.split() for line in lines if line != '' and line != '$']
@@ -85,6 +84,10 @@ class Lexer:
             inLineExpression.append('INLINE')
             return inLineExpression
         return False
+    def removeStartEndIndents(self):
+        while self.code[1] == ' ':
+            self.code = self.code.replace('\n    ', '\n')
+        
     
 # Parser
 # Input : lexer object
@@ -130,12 +133,10 @@ class Parser:
                     closedParans.append(letter)
             formatedList += openParans + [token.strip('()\n')] + closedParans     
         self.lexer.code = formatedList
-        print(self.lexer.code)
         self.programLength = len(self.lexer.code) #updating the length after finding paranthesis
         self.current_token = self.lexer.get_token()
         while self.lexer.position != self.programLength - 1:
             result += self.statement()
-        print(result)
         return result
     # move to the next token.
     def advance(self):
